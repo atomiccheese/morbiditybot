@@ -1,0 +1,9 @@
+[Connection]
+server = "irc.twitch.tv"
+port = 6667
+username = "username_here"
+oauth_password = "oauth_pwd_here"
+debug = true
+
+[example_channel]
+modules = 'deathcounter'
