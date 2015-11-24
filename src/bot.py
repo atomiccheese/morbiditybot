@@ -1,5 +1,8 @@
 from irc import bot
 import logging, importlib, time
+import random, traceback, os, os.path
+
+ERR_MSG = 'An error occurred in "%s" and it has been disabled. The MAGIC WORD is "%s".'
 
 class Bot(bot.SingleServerIRCBot):
 	def __init__(self, conf):
@@ -61,17 +64,30 @@ class Bot(bot.SingleServerIRCBot):
 			
 			# Instantiate the module
 			instances[mname] = mod.ModuleMain(conn, chan, confdict)
+			time.sleep(2)
 		self.chan_mod_instances[chan] = instances
 		logging.info("Created all modules for channel: %s", chan)
 
-		time.sleep(1)
-
 		conn.privmsg(chan, 'Bot ready. Modules loaded: %s' % (' '.join(instances.keys())))
+
+	def dump_exception(self):
+		if not os.path.exists('crash_logs'):
+			os.mkdir('crash_logs')
+		name = ''.join([random.choice('abcdefghijklmnopqrstuvwxyz') for x in range(16)])
+		with open(os.path.join('crash_logs', name), 'w') as f:
+			f.write(traceback.format_exc())
+		return name
 	
 	def on_pubmsg(self, conn, evt):
 		chan = evt.target
 		src = evt.source[:evt.source.find('!')]
 		content = evt.arguments[0]
 
-		for inst in self.chan_mod_instances[chan].values():
-			inst.on_message(src, content)
+		cmi = self.chan_mod_instances[chan]
+		for iname in cmi.keys():
+			inst = cmi[iname]
+			try:
+				inst.on_message(src, content)
+			except Exception as e:
+				magic = self.dump_exception()
+				conn.privmsg(chan, ERR_MSG % (iname, magic))
