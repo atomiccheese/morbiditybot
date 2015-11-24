@@ -1,5 +1,5 @@
 from irc import bot
-import logging, importlib
+import logging, importlib, time
 
 class Bot(bot.SingleServerIRCBot):
 	def __init__(self, conf):
@@ -64,8 +64,9 @@ class Bot(bot.SingleServerIRCBot):
 		self.chan_mod_instances[chan] = instances
 		logging.info("Created all modules for channel: %s", chan)
 
-		conn.privmsg(chan, 'Bot ready. Modules loaded: %s' % (
-			' '.join(instances.keys())))
+		time.sleep(1)
+
+		conn.privmsg(chan, 'Bot ready. Modules loaded: %s' % (' '.join(instances.keys())))
 	
 	def on_pubmsg(self, conn, evt):
 		chan = evt.target

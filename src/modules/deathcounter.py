@@ -1,4 +1,7 @@
+import requests, os, os.path
+
 CONFIG_PREFIX = "death"
+TWITCH_API = 'https://api.twitch.tv/kraken/'
 
 def print_num(n):
 	places = ['thousand', 'million', 'billion', 'trillion', 'quadrillion']
@@ -38,24 +41,79 @@ class ModuleMain:
 		self.conn = conn
 		self.chan = channel
 		self.admins = self.conf['admins'].split(',')
-		self.deaths = 0
 
+		self.deaths = 0
+		self.enabled = False
+		self.last_game = None
+
+		# Find the game being played
 		try:
-			f = open('deaths_%s' % channel[1:], 'r')
-			self.deaths = int(f.read())
+			game = self.get_game()
+			self.load_deaths(game)
+		except IOError:
+			self.error('Unable to determine game. Death counter disabled.')
+			self.enabled = False
+	
+	def send(self, msg):
+		self.conn.privmsg(self.chan, msg)
+	
+	def error(self, msg):
+		self.status('error: %s' % msg)
+	
+	def status(self, msg):
+		self.send('[deathcounter] %s' % msg)
+	
+	def get_game(self):
+		hdrs = {'accept': 'application/vnd.twitchtv.v3+json'}
+		url = TWITCH_API+'channels/'+self.chan[1:]
+		r = requests.get(url, headers=hdrs)
+		r.raise_for_status()
+		return r.json()['game']
+	
+	def update_game(self):
+		try:
+			g = self.get_game()
+		except IOError:
+			self.error('Unable to determine game. Death counter disabled.')
+			self.enabled = False
+			return False
+
+		if g != self.last_game:
+			self.load_deaths(g)
+		return True
+	
+	def load_deaths(self, game):
+		self.last_game = game
+
+		# Create user directory if it doesn't already exist
+		pth_game = game.replace('/', '\xff')
+		pth_chan = 'deaths_' + self.chan[1:]
+		if not os.path.exists(pth_chan):
+			os.mkdir(pth_chan)
+		pth = os.path.join(pth_chan, pth_game)
+		self.enabled = True
+
+		# Open the data file
+		try:
+			with open(pth, 'r') as f:
+				self.deaths = int(f.read())
 		except IOError as e:
 			pass
 		except ValueError as e:
 			pass
+		self.status('Death count for %s: %d' % (game, self.deaths))
+	
+	def save_deaths(self):
+		pth_game = self.last_game.replace('/', '\xff')
+		pth_chan = 'deaths_' + self.chan[1:]
+		pth = os.path.join(pth_chan, pth_game)
+		with open(pth, 'w') as f:
+			f.write(str(self.deaths))
 	
 	def count_death(self):
 		self.deaths += 1
-		with open('deaths_%s' % self.chan[1:], 'w') as f:
-			f.write(str(self.deaths))
+		self.save_deaths()
 		return self.deaths
-	
-	def send(self, msg):
-		self.conn.privmsg(self.chan, msg)
 	
 	def on_message(self, src, content):
 		content = content.strip()
@@ -86,14 +144,22 @@ class ModuleMain:
 			except ValueError as e:
 				self.send("Error: '%s' is not a valid number" % args[2])
 				return
-			with open('deaths_%s' % self.chan[1:], 'w') as f:
-				f.write(str(self.deaths))
+			self.save_deaths()
 			self.send("Number of deaths set to %d" % self.deaths)
+		elif args[0] == 'reload':
+			self.load_deaths(self.get_game())
+		elif args[0] == 'save':
+			self.save_deaths()
 		else:
 			self.send("Error: Unknown subcommand '%s'" % args[0])
 			return
 
 	def cmd_rip(self, src, args, content, user):
+		if not self.update_game():
+			return
+		if not self.enabled:
+			self.error('Death counter is currently disabled')
+
 		n = self.count_death()
 		if self.conf['spaced_text'].lower() == 'true':
 			disp = print_num(n).upper().replace(' ','')
@@ -103,4 +169,9 @@ class ModuleMain:
 		self.send(final)
 
 	def cmd_deaths(self, src, args, content, user):
+		if not self.update_game():
+			return
+		if not self.enabled:
+			self.error('Death counter is currently disabled')
+
 		self.send("%s has died %d times" % (self.chan, self.deaths)) 
