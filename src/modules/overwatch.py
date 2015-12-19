@@ -30,16 +30,16 @@ def subproc_reader(proc, mbus):
                         if fpsen is None:
                                 continue
                         fpsen.append(float(m.group(1)))
-                        fpsen = fpsen[-20:]
-                        if len(fpsen) < 20:
+                        fpsen = fpsen[-30:]
+                        if len(fpsen) < 30:
                                 continue
                         mean = sum(fpsen)/len(fpsen)
                         variance = sum(map(lambda x: (x-mean)**2, fpsen))/len(fpsen)
                         if variance < VARIANCE_THRESHOLD:
-                                fpsen = None
                                 mbus.post(None, 'monitor_stable', (mean, variance), {})
                         else:
                                 mbus.post(None, 'monitor_stabilize', (mean, variance), {})
+                        fpsen = None
                         continue
                 if line == 'died':
                         mbus.post(None, 'died', [], {})
@@ -58,7 +58,7 @@ class ModuleMain(modules.CommandModule):
                 self.admins = self.conf['admins'].split(' ')
                 self.executable = self.conf['command']
                 self.game = self.conf['game']
-        
+
         def get_game(self):
                 hdrs = {'accept': 'application/vnd.twitchtv.v3+json'}
                 url = TWITCH_API+'channels/'+self.chan[1:]
