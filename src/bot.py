@@ -4,6 +4,23 @@ import random, traceback, os, os.path
 
 ERR_MSG = 'An error occurred in "%s" and it has been disabled. The MAGIC WORD is "%s".'
 
+class MessageBus:
+        def __init__(self):
+                self.members = []
+
+        def post(self, src, msg, args, kwargs):
+                for m in self.members:
+                        if m is src:
+                                continue
+                        m.bus_handle(msg, args, kwargs)
+        
+        def register(self, mod):
+                self.members.append(mod)
+
+        def unregister(self, mod):
+                if mod in self.members:
+                        self.members.remove(mod)
+
 class Bot(bot.SingleServerIRCBot):
         def __init__(self, conf):
                 self.conf = conf
@@ -14,8 +31,12 @@ class Bot(bot.SingleServerIRCBot):
                 self.chan_modules = {} # Maps channel to list of module objects
                 self.chan_mod_instances = {} # Maps channel to {modname->instance}
                 self.modules = {} # Maps modname to module objects
+                self.chan_bus = {} # maps channel to bus object
 
                 for c in self.tojoin_channels:
+                        # Create the channel's bus
+                        self.chan_bus[c] = MessageBus()
+
                         # Try to load a module if it isn't already available
                         mods = self.conf.get(c, 'modules').split(',')
                         for m in mods:
@@ -41,46 +62,53 @@ class Bot(bot.SingleServerIRCBot):
                 bot.SingleServerIRCBot.__init__(self, [srv], user, user)
 
         def load_module(self, mod, chan):
-            # Load the module if needed
-            if mod not in self.modules:
-                # Load the module if necessary
-                pth = 'src.modules.%s' % mod
-                self.modules[mod] = importlib.import_module(pth)
-                logging.info("Loaded module: %s" % mod)
+                # Load the module if needed
+                if mod not in self.modules:
+                        # Load the module if necessary
+                        pth = 'src.modules.%s' % mod
+                        self.modules[mod] = importlib.import_module(pth)
+                        logging.info("Loaded module: %s" % mod)
 
-            # Plug the module into this channel
-            modname = mod
-            mod = self.modules[mod]
-            if mod not in self.chan_mod_instances[chan]:
-                # Instantiate the module
-                conf = self.get_module_conf(chan, mod)
-                inst = mod.ModuleMain(self.connection, chan, conf)
-                self.chan_modules[chan].append(mod)
-                self.chan_mod_instances[chan][modname] = inst
-                time.sleep(2)
-                self.connection.privmsg(chan, "Module loaded: %s" % modname)
+                # Plug the module into this channel
+                modname = mod
+                mod = self.modules[mod]
+                if mod not in self.chan_mod_instances[chan]:
+                        # Instantiate the module
+                        conf = self.get_module_conf(chan, mod)
+                        cbus = self.chan_bus[chan]
+                        inst = mod.ModuleMain(cbus, self.connection, chan, conf)
+                        cbus.register(inst)
+                        self.chan_modules[chan].append(mod)
+                        self.chan_mod_instances[chan][modname] = inst
+                        time.sleep(2)
+                        self.connection.privmsg(chan, "Module loaded: %s" % modname)
+                else:
+                        self.connection.privmsg(chan, "Module already loaded: %s" % modname)
 
         def unload_module(self, mod, chan):
-            if mod not in self.modules:
-                return
-            mname = mod
-            mod = self.modules[mod]
-            if chan != None:
-                # Only unload from this channel
-                self.chan_modules[chan].remove(mod)
-                del self.chan_mod_instances[chan][mname]
-                self.connection.privmsg(chan, "Module unloaded: %s" % mname)
-            else:
-                users = list(filter(lambda x: mod in self.chan_modules[x],
-                    self.tojoin_channels))
-                for u in users:
-                    self.chan_modules[u].remove(mod)
-                    del self.chan_mod_instances[u][mname]
-                    self.connection.privmsg(u, "Module unloaded: %s" % mname)
+                if mod not in self.modules:
+                        return
+                mname = mod
+                mod = self.modules[mod]
+                if chan != None:
+                        # Only unload from this channel
+                        self.chan_modules[chan].remove(mod)
+                        inst = self.chan_mod_instances[chan][mname]
+                        self.chan_bus[chan].unregister(inst)
+                        del self.chan_mod_instances[chan][mname]
+                        self.connection.privmsg(chan, "Module unloaded: %s" % mname)
+                else:
+                        users = list(filter(lambda x: mod in self.chan_modules[x],
+                                self.tojoin_channels))
+                        for u in users:
+                                self.chan_modules[u].remove(mod)
+                                del self.chan_mod_instances[u][mname]
+                                self.chan_bus[chan].unregister(inst)
+                        self.connection.privmsg(u, "Module unloaded: %s" % mname)
 
         def reload_module(self, mod):
-            users = list(filter(lambda x: mod in self.chan_modules[c],
-                self.tojoin_channels))
+                users = list(filter(lambda x: mod in self.chan_modules[c],
+                        self.tojoin_channels))
 
         def get_module_conf(self, chan, mod):
                 confdict = {}
@@ -98,12 +126,12 @@ class Bot(bot.SingleServerIRCBot):
                 for c in self.tojoin_channels:
                         self.connection.join(c)
 
-        def on_join(self, conn, evt):
-                chan = evt.target
+        def on_endofnames(self, conn, evt):
+                chan = evt.arguments[0]
                 logging.debug("Joined channel: %s", chan)
 
                 # Initialize channel modules
-                chanmods = self.chan_modules[evt.target]
+                chanmods = self.chan_modules[chan]
                 instances = {}
                 for mod in chanmods:
                         mname = mod.__name__.split('.')[-1]
@@ -112,7 +140,9 @@ class Bot(bot.SingleServerIRCBot):
                         confdict = self.get_module_conf(chan, mod)
 
                         # Instantiate the module
-                        instances[mname] = mod.ModuleMain(conn, chan, confdict)
+                        cbus = self.chan_bus[chan]
+                        instances[mname] = mod.ModuleMain(cbus, conn, chan, confdict)
+                        cbus.register(instances[mname])
                         time.sleep(2)
                 self.chan_mod_instances[chan] = instances
                 logging.info("Created all modules for channel: %s", chan)

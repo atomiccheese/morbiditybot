@@ -1,5 +1,7 @@
 import requests, os, os.path
 
+from .. import modules
+
 CONFIG_PREFIX = "death"
 TWITCH_API = 'https://api.twitch.tv/kraken/'
 
@@ -35,17 +37,20 @@ def print_num(n):
                         idx += 1
                 return ' '.join(parts[::-1])
 
-class ModuleMain:
-        def __init__(self, conn, channel, conf):
-                self.conf = conf
-                self.conn = conn
-                self.chan = channel
+class ModuleMain(modules.CommandModule):
+        def __init__(self, bus, conn, chan, conf):
+                modules.CommandModule.__init__(self, 'deathcounter', bus, conn, chan, conf)
+
                 self.admins = self.conf['admins'].split(',')
-                self.happy = (self.conf['happy'].lower() == 'true')
+                if 'happy' in self.conf:
+                        self.happy = (self.conf['happy'].lower() == 'true')
+                else:
+                        self.happy = False
 
                 self.deaths = 0
                 self.enabled = False
                 self.last_game = None
+                self.rip_enabled = True
 
                 # Find the game being played
                 try:
@@ -54,15 +59,6 @@ class ModuleMain:
                 except IOError:
                         self.error('Unable to determine game. Death counter disabled.')
                         self.enabled = False
-        
-        def send(self, msg):
-                self.conn.privmsg(self.chan, msg)
-        
-        def error(self, msg):
-                self.status('error: %s' % msg)
-        
-        def status(self, msg):
-                self.send('[deathcounter] %s' % msg)
         
         def get_game(self):
                 hdrs = {'accept': 'application/vnd.twitchtv.v3+json'}
@@ -115,22 +111,32 @@ class ModuleMain:
                 self.deaths += 1
                 self.save_deaths()
                 return self.deaths
-        
-        def on_message(self, src, content):
-                content = content.strip()
-                words = content.split(' ')
-                if len(words) == 0:
+
+        def busmsg_died(self):
+                self.count_one_death()
+
+        def busmsg_monitor_stable(self, fps, fpsvar):
+                self.rip_enabled = False
+
+        def busmsg_monitor_ending(self):
+                self.rip_enabled = True
+
+        def count_one_death(self):
+                if not self.update_game():
                         return
-                cmd = words[0]
-                if cmd[0] != '!':
-                        return
-                cmd = words[0][1:]
-                
-                if(hasattr(self, 'cmd_'+cmd)):
-                        getattr(self, 'cmd_'+cmd)(src,
-                                        words[1:],
-                                        content[len(words[0]):].strip(),
-                                        src)
+                if not self.enabled:
+                        self.error('Death counter is currently disabled')
+
+                n = self.count_death()
+                if self.conf['spaced_text'].lower() == 'true':
+                        disp = print_num(n).upper().replace(' ','')
+                        if self.happy:
+                            final = ' '.join(disp + 'HAPPYLITTLEACCIDENTS')
+                        else:
+                            final = ' '.join(disp + 'BOYS')
+                else:
+                        final = str(self.deaths)
+                self.send(final)
         
         def cmd_death(self, src, args, content, user):
                 if(len(args) == 0):
@@ -156,21 +162,10 @@ class ModuleMain:
                         return
 
         def cmd_rip(self, src, args, content, user):
-                if not self.update_game():
-                        return
-                if not self.enabled:
-                        self.error('Death counter is currently disabled')
-
-                n = self.count_death()
-                if self.conf['spaced_text'].lower() == 'true':
-                        disp = print_num(n).upper().replace(' ','')
-                        if self.happy:
-                            final = ' '.join(disp + 'HAPPYLITTLEACCIDENTS')
-                        else:
-                            final = ' '.join(disp + 'BOYS')
+                if self.rip_enabled:
+                        self.count_one_death()
                 else:
-                        final = str(self.deaths)
-                self.send(final)
+                        self.send('Automatic death recognition is currently active; !rip is disabled.')
 
         def cmd_deaths(self, src, args, content, user):
                 if not self.update_game():

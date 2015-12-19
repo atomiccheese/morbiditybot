@@ -5,7 +5,8 @@
 using namespace std;
 using namespace cv;
 
-#define VIDEO_DEBUG
+//#define VIDEO_DEBUG
+#define SENTINEL_ENABLE
 
 /*
 #define MIN_ROSS_FRAMES 45
@@ -65,6 +66,10 @@ int main(int argc, char **argv) {
     namedWindow("image");
 
     moveWindow("image", 1940, 10);
+#endif
+#ifdef SENTINEL_ENABLE
+    printf("[sentinel] system starting\n");
+    fflush(stdout);
 #endif
 
     Mat msg, health, frame;
@@ -144,7 +149,7 @@ int main(int argc, char **argv) {
         if(finish == 1) {
             if(seen_frames > MIN_ROSS_FRAMES && seen_frames < MAX_ROSS_FRAMES) {
                 seen_frames = -999999999;
-                printf("died\n");
+                printf("[sentinel] died\n");
                 fflush(stdout);
             } else {
                 seen_frames = 0;
@@ -184,9 +189,18 @@ int main(int argc, char **argv) {
             }
         }
 #endif
+#ifdef SENTINEL_ENABLE
+        if(processed % 30 == 0) {
+            printf("[sentinel] run fps=%.2f\n", (processed / time));
+            fflush(stdout);
+        }
+#endif
     }
 
-    printf("FPS: %lf\n", processed/time);
+#ifdef SENTINEL_ENABLE
+    printf("[sentinel] stream ended\n");
+    fflush(stdout);
+#endif
 
     return 0;
 }
