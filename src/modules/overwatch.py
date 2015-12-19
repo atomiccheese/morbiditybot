@@ -1,4 +1,4 @@
-import subprocess, requests, threading, re, logging
+import subprocess, requests, threading, re, logging, time
 
 from .. import modules
 
@@ -42,6 +42,7 @@ def subproc_reader(proc, mbus):
                         fpsen = None
                         continue
                 if line == 'died':
+                        time.sleep(1.5)
                         mbus.post(None, 'died', [], {})
                         continue
                 logging.warning("Unknown procline: '%s'" % line)
