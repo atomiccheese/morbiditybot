@@ -1,6 +1,7 @@
 from irc import bot
 import logging, importlib, time
 import random, traceback, os, os.path
+import queue, threading
 
 ERR_MSG = 'An error occurred in "%s" and it has been disabled. The MAGIC WORD is "%s".'
 
@@ -20,6 +21,30 @@ class MessageBus:
         def unregister(self, mod):
                 if mod in self.members:
                         self.members.remove(mod)
+
+class OutgoingQueue(threading.Thread):
+        def __init__(self, sink):
+                threading.Thread.__init__(self)
+                self.daemon = True
+
+                self.sink = sink
+                self.queue = queue.Queue()
+
+        def run(self):
+                times = []
+                while True:
+                        x = self.queue.get()
+
+                        # Remove entries over 30 seconds old
+                        while len(times) > 18:
+                                time.sleep(times[0] - (time.time() - 30))
+                                while times[0] < (time.time() - 30):
+                                        times.pop(0)
+                        time.append(time.time())
+                        self.sink.privmsg(*x)
+        
+        def privmsg(self, chan, msg):
+                self.queue.put((chan, msg))
 
 class Bot(bot.SingleServerIRCBot):
         def __init__(self, conf):
@@ -107,8 +132,10 @@ class Bot(bot.SingleServerIRCBot):
                         self.connection.privmsg(u, "Module unloaded: %s" % mname)
 
         def reload_module(self, mod):
-                users = list(filter(lambda x: mod in self.chan_modules[c],
-                        self.tojoin_channels))
+                if mod not in self.modules:
+                        return
+                self.unload_module(mod)
+                self.load_module(mod)
 
         def get_module_conf(self, chan, mod):
                 confdict = {}
