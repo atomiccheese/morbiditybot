@@ -92,7 +92,6 @@ class Bot(bot.SingleServerIRCBot):
                         # Load the module if necessary
                         pth = 'src.modules.%s' % mod
                         self.modules[mod] = importlib.import_module(pth)
-                        self.modules[mod] = reload(
                         logging.info("Loaded module: %s" % mod)
 
                 # Plug the module into this channel
