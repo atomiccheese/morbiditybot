@@ -15,7 +15,7 @@ using namespace cv;
 */
 #define FRAME_DIVISOR 3
 #define MIN_ROSS_FRAMES (45 / FRAME_DIVISOR)
-#define MAX_ROSS_FRAMES (70 / FRAME_DIVISOR)
+#define MAX_ROSS_FRAMES (2000 / FRAME_DIVISOR)
 
 // Frame positioning constants
 #define MSG_REGION_START_X 0.14
