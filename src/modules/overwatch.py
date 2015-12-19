@@ -35,10 +35,7 @@ def subproc_reader(proc, mbus):
                                 continue
                         mean = sum(fpsen)/len(fpsen)
                         variance = sum(map(lambda x: (x-mean)**2, fpsen))/len(fpsen)
-                        if variance < VARIANCE_THRESHOLD:
-                                mbus.post(None, 'monitor_stable', (mean, variance), {})
-                        else:
-                                mbus.post(None, 'monitor_stabilize', (mean, variance), {})
+                        mbus.post(None, 'monitor_stable', (mean, variance), {})
                         fpsen = None
                         continue
                 if line == 'died':
@@ -103,10 +100,6 @@ class ModuleMain(modules.CommandModule):
         def busmsg_monitor_stable(self, fps, fpsvar):
                 TPL = "stable at {:.2f} FPS (variance {:.2f})"
                 self.status(VAS_PREFIX + TPL.format(fps, fpsvar))
-
-        def busmsg_monitor_stabilize(self, fps, fpsvar):
-                TPL = "stabilizing (currently {:.2f} FPS, variance {:.2f})"
-                self.status(VAS_PREFIX + TPL.format(fps,fpsvar))
 
         def busmsg_monitor_ending(self):
                 self.status(VAS_PREFIX+"shut down")
