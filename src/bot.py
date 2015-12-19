@@ -92,6 +92,7 @@ class Bot(bot.SingleServerIRCBot):
                         # Load the module if necessary
                         pth = 'src.modules.%s' % mod
                         self.modules[mod] = importlib.import_module(pth)
+                        self.modules[mod] = reload(
                         logging.info("Loaded module: %s" % mod)
 
                 # Plug the module into this channel
@@ -118,7 +119,10 @@ class Bot(bot.SingleServerIRCBot):
                 if chan != None:
                         # Only unload from this channel
                         self.chan_modules[chan].remove(mod)
+
                         inst = self.chan_mod_instances[chan][mname]
+                        if hasattr(inst, 'shutdown'):
+                                inst.shutdown()
                         self.chan_bus[chan].unregister(inst)
                         del self.chan_mod_instances[chan][mname]
                         self.connection.privmsg(chan, "Module unloaded: %s" % mname)
@@ -127,6 +131,9 @@ class Bot(bot.SingleServerIRCBot):
                                 self.tojoin_channels))
                         for u in users:
                                 self.chan_modules[u].remove(mod)
+                                inst = self.chan_mod_instances[u][mname]
+                                if hasattr(inst, 'shutdown'):
+                                        inst.shutdown()
                                 del self.chan_mod_instances[u][mname]
                                 self.chan_bus[chan].unregister(inst)
                         self.connection.privmsg(u, "Module unloaded: %s" % mname)
@@ -134,8 +141,17 @@ class Bot(bot.SingleServerIRCBot):
         def reload_module(self, mod):
                 if mod not in self.modules:
                         return
+                
+                # Shut down module instances
+                users = list(filter(lambda x: mod in self.chan_modules[x],
+                        self.tojoin_channels))
                 self.unload_module(mod)
-                self.load_module(mod)
+
+                importlib.reload(self.modules[mod])
+                importlib.invalidate_caches()
+
+                for u in users:
+                        self.load_module(mod, u)
 
         def get_module_conf(self, chan, mod):
                 confdict = {}
