@@ -114,7 +114,7 @@ class ModuleMain(modules.CommandModule):
                 if not self.process:
                         return
                 self.process.terminate()
-                self.process.join()
+                self.process.wait()
                 self.process = None
                 self.monitor.join()
 
