@@ -45,7 +45,7 @@ def subproc_reader(proc, mbus):
                         mbus.post(None, 'died', [], {})
                         continue
                 logging.warning("Unknown procline: '%s'" % line)
-        mbus.post('monitor_ending', [], {})
+        mbus.post(None, 'monitor_ending', [], {})
 
 class ModuleMain(modules.CommandModule):
         def __init__(self, bus, conn, chan, conf):
