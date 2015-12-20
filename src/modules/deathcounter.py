@@ -4,6 +4,7 @@ from .. import modules
 
 CONFIG_PREFIX = "death"
 TWITCH_API = 'https://api.twitch.tv/kraken/'
+AVERAGE_DEATHS = 731
 
 def print_num(n):
         places = ['thousand', 'million', 'billion', 'trillion', 'quadrillion']
@@ -177,7 +178,8 @@ class ModuleMain(modules.CommandModule):
                 if not self.enabled:
                         self.error('Death counter is currently disabled')
 
+                pct_avg = "{:.3f}% of average".format(100*(self.deaths / AVERAGE_DEATHS))
                 if self.happy:
-                    self.send("%s has had %d happy little accidents" % (self.chan, self.deaths)) 
+                    self.send("%s has had %d happy little accidents (%s)" % (self.chan, self.deaths, pct_avg)) 
                 else:
-                    self.send("%s has died %d times" % (self.chan, self.deaths)) 
+                    self.send("%s has died %d times (%s)" % (self.chan, self.deaths, pct_avg)) 
