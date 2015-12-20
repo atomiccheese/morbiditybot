@@ -16,7 +16,7 @@ def print_num(n):
                                 'seventeen','eighteen','nineteen']
                 tens = ['twenty','thirty','forty','fifty','sixty','seventy',
                                 'eighty','ninety']
-                if n < len(digits):
+                if n <= len(digits):
                         return digits[n-1]
                 else:
                         tens = tens[(n // 10)-2]
