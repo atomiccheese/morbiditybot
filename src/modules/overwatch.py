@@ -66,11 +66,8 @@ class ModuleMain(modules.CommandModule):
 
         def should_enable(self):
                 g = self.get_game()
+                logging.debug("Checking game: '{}' vs '{}'".format(g, self.game))
                 return g.lower() == self.game.lower()
-
-        def check_scanner(self):
-                """ Make sure the scanner process is running """
-                pass
 
         def cmd_vproc(self, src, args, content, user):
                 if user not in self.admins:
@@ -81,6 +78,11 @@ class ModuleMain(modules.CommandModule):
                         self.proc_begin('http://twitch.tv/{}'.format(self.chan[1:]))
                 elif cmd == 'stop':
                         self.proc_terminate()
+                elif cmd == 'status':
+                        if self.process:
+                                self.status('Video processing is online')
+                        else:
+                                self.status('Video processing is offline')
                 else:
                         self.error("Unknown system command")
 
