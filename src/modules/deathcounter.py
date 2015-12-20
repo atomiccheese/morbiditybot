@@ -7,7 +7,9 @@ TWITCH_API = 'https://api.twitch.tv/kraken/'
 
 def print_num(n):
         places = ['thousand', 'million', 'billion', 'trillion', 'quadrillion']
-        if n < 100:
+        if n == 0:
+                return 'zero'
+        elif n < 100:
                 digits = ['one','two','three','four','five','six','seven',
                                 'eight','nine','ten','eleven','twelve',
                                 'thirteen','fourteen','fifteen','sixteen',
@@ -24,8 +26,10 @@ def print_num(n):
                         return tens + ' ' + ones
         elif n < 1000:
                 hundreds = print_num(n // 100)
-                ones = print_num(n % 100)
-                return hundreds + ' hundred ' + ones
+                parts = [hundreds, 'hundred']
+                if (n % 100) != 0:
+                        parts.append(print_num(n % 100))
+                return ' '.join(parts)
         else:
                 parts = []
                 idx = 0
