@@ -11,6 +11,8 @@ FPS_LINE_RE = re.compile('run fps=([0-9.]+)')
 VARIANCE_THRESHOLD = 2
 VAS_PREFIX = "Video analysis subsystem "
 
+time_delay = 1.5
+
 # Reader process to translate subprocess events into msgbus calls
 def subproc_reader(proc, mbus):
         fpsen = []
@@ -39,7 +41,7 @@ def subproc_reader(proc, mbus):
                         fpsen = None
                         continue
                 if line == 'died':
-                        time.sleep(1.5)
+                        time.sleep(time_delay)
                         mbus.post(None, 'died', [], {})
                         continue
                 logging.warning("Unknown procline: '%s'" % line)
@@ -83,6 +85,18 @@ class ModuleMain(modules.CommandModule):
                                 self.status('Video processing is online')
                         else:
                                 self.status('Video processing is offline')
+                elif cmd == 'delay':
+                        if len(args) != 1:
+                                self.status("Usage: vproc delay [seconds]")
+                        try:
+                                secs = float(args[0])
+                                if secs > 10:
+                                        self.error("Not a valid number of seconds")
+                                global time_delay
+                                time_delay = secs
+                                self.status("Set delay to %.2f seconds" % secs)
+                        except ValueError:
+                                self.error("Not a valid number of seconds")
                 else:
                         self.error("Unknown system command")
 
@@ -93,9 +107,6 @@ class ModuleMain(modules.CommandModule):
                 elif not self.process and should:
                         self.proc_begin('http://twitch.tv/{}'.format(self.chan[1:]))
 
-        def cmd_dbgbro(self, src, args, content, user):
-                self.proc_begin('http://www.twitch.tv/outstarwalker/v/30459989')
-
         def busmsg_monitor_starting(self):
                 self.status(VAS_PREFIX+"initializing")
 
@@ -104,6 +115,7 @@ class ModuleMain(modules.CommandModule):
                 self.status(VAS_PREFIX + TPL.format(fps, fpsvar))
 
         def busmsg_monitor_ending(self):
+                self.process = None
                 self.status(VAS_PREFIX+"shut down")
 
         def proc_terminate(self):
