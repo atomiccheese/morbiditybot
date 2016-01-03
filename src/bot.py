@@ -77,7 +77,7 @@ class Bot(bot.SingleServerIRCBot):
                 srv = conf.get('Connection', 'server')
                 port = int(conf.get('Connection', 'port'))
                 user = conf.get('Connection', 'username')
-                quiet = (conf.get('Connection', 'quiet').lower() == 'true')
+                self.quiet = (conf.get('Connection', 'quiet').lower() == 'true')
 
                 self.admins = conf.get('Connection', 'sys_admins').strip().split(',')
 
@@ -107,10 +107,10 @@ class Bot(bot.SingleServerIRCBot):
                         self.chan_modules[chan].append(mod)
                         self.chan_mod_instances[chan][modname] = inst
                         time.sleep(2)
-                        if not quiet:
+                        if not self.quiet:
                                 self.connection.privmsg(chan, "Module loaded: %s" % modname)
                 else:
-                        if not quiet:
+                        if not self.quiet:
                                 self.connection.privmsg(chan, "Module already loaded: %s" % modname)
 
         def unload_module(self, mod, chan):
@@ -127,7 +127,7 @@ class Bot(bot.SingleServerIRCBot):
                                 inst.shutdown()
                         self.chan_bus[chan].unregister(inst)
                         del self.chan_mod_instances[chan][mname]
-                        if not quiet:
+                        if not self.quiet:
                                 self.connection.privmsg(chan, "Module unloaded: %s" % mname)
                 else:
                         users = list(filter(lambda x: mod in self.chan_modules[x],
@@ -139,7 +139,7 @@ class Bot(bot.SingleServerIRCBot):
                                         inst.shutdown()
                                 del self.chan_mod_instances[u][mname]
                                 self.chan_bus[chan].unregister(inst)
-                        if not quiet:
+                        if not self.quiet:
                                 self.connection.privmsg(u, "Module unloaded: %s" % mname)
 
         def reload_module(self, mod):

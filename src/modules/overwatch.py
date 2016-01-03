@@ -55,7 +55,7 @@ class ModuleMain(modules.CommandModule):
                 self.monitor = None
 
                 self.exec_cwd = self.conf['cwd']
-                self.admins = self.conf['admins'].split(' ')
+                self.admins = self.conf['admins'].split(',')
                 self.executable = self.conf['command']
                 self.game = self.conf['game']
 
