@@ -224,21 +224,21 @@ class Bot(bot.SingleServerIRCBot):
 
         def process_metacommand(self, chan, src, content):
             if src not in self.admins:
-                conn.privmsg(chan, '[metacmd] You do not have system-level access')
+                self.conn.privmsg(chan, '[metacmd] You do not have system-level access')
                 return
             parts = content.split(' ')[1:]
             if len(parts) == 0:
-                conn.privmsg(chan, '[metacmd] No operation specified')
+                self.conn.privmsg(chan, '[metacmd] No operation specified')
                 return
             cmd = parts[0]
             if cmd == 'unload':
                 if len(parts) < 2:
-                    conn.privmsg(chan, '[metacmd] Must specify module')
+                    self.conn.privmsg(chan, '[metacmd] Must specify module')
                     return
                 opts = parts[2:]
                 for i in opts:
                     if i not in ['force']:
-                        conn.privmsg(chan, '[metacmd] Unknown option: %s' % i)
+                        self.conn.privmsg(chan, '[metacmd] Unknown option: %s' % i)
 
                 if 'force' in opts:
                     self.unload_module(parts[1], None)
@@ -246,12 +246,12 @@ class Bot(bot.SingleServerIRCBot):
                     self.unload_module(parts[1], chan)
             if cmd == 'reload':
                 if len(parts) != 2:
-                    conn.privmsg(chan, '[metacmd] Must specify module')
+                    self.conn.privmsg(chan, '[metacmd] Must specify module')
                     return
                 self.unload_module(parts[1], chan)
                 self.load_module(parts[1], chan)
             if cmd == 'load':
                 if len(parts) != 2:
-                    conn.privmsg(chan, '[metacmd] Must specify module')
+                    self.conn.privmsg(chan, '[metacmd] Must specify module')
                     return
                 self.load_module(parts[1], chan)
